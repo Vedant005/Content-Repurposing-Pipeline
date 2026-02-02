@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg            
+pydantic-settings
+openai
+youtube-transcript-api
+alembic
+python-dotenv
