@@ -6,6 +6,7 @@ from src.core.config import settings
 from src.api import repurpose
 from src.db.session import engine
 from src.models.content import Base
+from src.middleware.session import SessionMiddleware
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -13,13 +14,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
+origins = [
+    "http://localhost:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(SessionMiddleware)
 
 @app.on_event("startup")
 async def startup():
