@@ -2,6 +2,7 @@ import json
 import re
 from typing import Optional, Any, Dict, List, Union
 from pydantic import BaseModel, HttpUrl, validator, Field
+from datetime import datetime
 
 class VideoRequest(BaseModel):
     url: HttpUrl
@@ -23,3 +24,11 @@ class JobStatusResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class HistoryResponse(BaseModel):
+    id:           int
+    youtube_url:  str
+    status:       str
+    created_at:   datetime
+
+    model_config = {"from_attributes": True}
