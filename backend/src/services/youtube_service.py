@@ -179,7 +179,7 @@ class ContentProcessor:
                     "No markdown, no code fences, no preamble — just the JSON array."
                 ),
                 safe_transcript,
-                model="llama-3.1-8b-instant", 
+                model="llama-3.3-70b-versatile", 
             ),
             ContentProcessor._call_groq_with_retry(
                 "linkedin",
