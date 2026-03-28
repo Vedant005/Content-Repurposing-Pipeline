@@ -145,7 +145,20 @@ async def repurpose_video(
         )
 
     session_id = get_session_id(request)
-
+    
+    existing = await db.execute(
+        select(ContentJob).where(
+            ContentJob.session_id == session_id,
+            ContentJob.youtube_url == url_str,
+            ContentJob.status == "processing",
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="A job for this URL is already processing.",
+        )
+    
     new_job = ContentJob(
         youtube_url=url_str,
         status="processing",
