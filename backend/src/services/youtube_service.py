@@ -1,66 +1,205 @@
 import asyncio
-import json
 import re
+import os
+import glob
+import uuid
+import logging
+import yt_dlp
+from groq import AsyncGroq
+
 from google import genai
 from google.genai import types
 from youtube_transcript_api import YouTubeTranscriptApi
+from urllib.parse import urlparse
 from src.core.config import settings
 
+logger = logging.getLogger("repurpose_api")
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
+groq_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 ytt_api = YouTubeTranscriptApi()
 
+DOWNLOADS_DIR = "downloads"
+MAX_TRANSCRIPT_CHARS = 50_000
+# GEMINI_PRO_MODEL = "gemini-2.5-pro"
+# GEMINI_FLASH_MODEL = "gemini-1.5-flash"  
+
+
 class ContentProcessor:
-    @staticmethod
-    def get_video_id(url: str):
-        regex = r"(?:v=|\/)([0-9A-Za-z_-]{11}).*"
-        match = re.search(regex, url)
-        if match:
-            return match.group(1)
-        return None
+
 
     @staticmethod
-    def get_transcript(video_id: str):
+    def get_video_id(url: str) -> str | None:
+       
         try:
-            transcript = ytt_api.fetch(video_id)
-            return " ".join([t.text for t in transcript])
+            parsed = urlparse(url)
+        except Exception:
+            return None
+
+        valid_hosts = {"www.youtube.com", "youtube.com", "youtu.be", "m.youtube.com"}
+        if parsed.hostname not in valid_hosts:
+            return None
+
+        regex = r"(?:v=|\/)([0-9A-Za-z_-]{11}).*"
+        match = re.search(regex, url)
+        return match.group(1) if match else None
+
+
+    @staticmethod
+    def download_audio(video_url: str, job_token: str) -> str | None:
+       
+        os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "128",
+            }],
+            "outtmpl": f"{DOWNLOADS_DIR}/%(id)s_{job_token}.%(ext)s",
+            "quiet": True,
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(video_url, download=True)
+                video_id = info["id"]
+                return f"{DOWNLOADS_DIR}/{video_id}_{job_token}.mp3"
         except Exception as e:
-            print(f"Error fetching transcript: {e}")
+            logger.error("yt-dlp download error", extra={"error": str(e), "url": video_url})
+            return None
+
+
+    @staticmethod
+    async def transcribe_with_groq_whisper(audio_path: str) -> str | None:
+       
+        try:
+            with open(audio_path, "rb") as f:
+                response = await groq_client.audio.transcriptions.create(
+                    file=(audio_path, f.read()),
+                    model="whisper-large-v3",
+                    response_format="text",
+                    language="en",
+                )
+            return response
+        except Exception as e:
+            logger.error("Groq Whisper error", extra={"error": str(e)})
             return None
 
     @staticmethod
-    async def generate_assets(transcript: str):
-        safe_transcript = transcript[:30000]
+    async def get_transcript(video_id: str) -> str | None:
+      
+        try:
+            transcript_list = await asyncio.to_thread(ytt_api.fetch, video_id)
+            logger.info("Captions found", extra={"video_id": video_id})
+            return " ".join([t.text for t in transcript_list])
+        except Exception as e:
+            logger.warning(
+                "No captions, switching to audio fallback",
+                extra={"video_id": video_id, "reason": str(e)},
+            )
 
-        async def call_gemini(prompt_type, system_instruction):
+        video_url = f"https://www.youtube.com/watch?v={video_id}"
+        job_token = uuid.uuid4().hex[:10] 
+
+        audio_path = await asyncio.to_thread(
+            ContentProcessor.download_audio, video_url, job_token
+        )
+        if not audio_path:
+            return None
+
+        try:
+            transcript_text = await ContentProcessor.transcribe_with_groq_whisper(audio_path)
+        finally:
+            
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+
+        return transcript_text
+
+
+
+    @staticmethod
+    def truncate_transcript(text: str, max_chars: int = MAX_TRANSCRIPT_CHARS) -> str:
+       
+        if len(text) <= max_chars:
+            return text
+        truncated = text[:max_chars]
+        last_period = truncated.rfind(".")
+        return truncated[: last_period + 1] if last_period > 0 else truncated
+
+
+    async def _call_groq_with_retry(
+        prompt_type: str,
+        system_instruction: str,
+        content: str,
+        model: str = "llama-3.3-70b-versatile",
+        retries: int = 3,
+    ) -> tuple[str, str]:
+        last_error = None
+        for attempt in range(retries):
             try:
-                response = await client.aio.models.generate_content(
-                    model='gemini-3-flash-preview',
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.7
-                    ),
-                    contents=[safe_transcript]
+                response = await groq_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": f"<transcript>\n{content}\n</transcript>"},
+                    ],
+                    temperature=0.7,
                 )
-                return prompt_type, response.text
+                return prompt_type, response.choices[0].message.content
             except Exception as e:
-                print(f"Gemini Error ({prompt_type}): {e}")
-                return prompt_type, f"Error generating content: {str(e)}"
+                last_error = e
+                if attempt < retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+        return prompt_type, f"Error: {last_error}"
+
+    @staticmethod
+    async def generate_assets(transcript: str) -> dict:
+       
+        safe_transcript = ContentProcessor.truncate_transcript(transcript)
 
         results = await asyncio.gather(
-            call_gemini(
-                "blog", 
-                "You are an expert SEO copywriter. Write a detailed, SEO-optimized blog post based on this transcript. Use Markdown formatting."
+            ContentProcessor._call_groq_with_retry(
+                "blog",
+                (
+                    "You are an expert SEO copywriter. "
+                    "Write a detailed, SEO-optimized blog post based on the transcript. "
+                    "Use Markdown formatting."
+                ),
+                safe_transcript,
+                model="llama-3.3-70b-versatile",
             ),
-            call_gemini(
-                "tweets", 
-                "You are a viral social media manager. Create a viral Twitter thread (max 10 tweets) based on this transcript. output ONLY a raw JSON list of strings. No markdown formatting around the JSON."
+            ContentProcessor._call_groq_with_retry(
+                "tweets",
+                (
+                    "You are a viral social media manager. "
+                    "Create a viral Twitter thread (max 10 tweets) based on the transcript. "
+                    "Output ONLY a raw JSON list of strings. "
+                    "No markdown, no code fences, no preamble — just the JSON array."
+                ),
+                safe_transcript,
+                model="llama-3.1-8b-instant", 
             ),
-            call_gemini(
-                "linkedin", 
-                "You are a B2B thought leader. Write a professional, engaging LinkedIn summary of this video."
-            )
+            ContentProcessor._call_groq_with_retry(
+                "linkedin",
+                (
+                    "You are a B2B thought leader. "
+                    "Write a professional, engaging LinkedIn post summarising this video."
+                ),
+                safe_transcript,
+                model="llama-3.1-8b-instant", 
+            ),
+            return_exceptions=True,  
         )
-        
-        return {k: v for k, v in results}
+
+        output: dict[str, str | None] = {}
+        for result in results:
+            if isinstance(result, Exception):
+               
+                logger.error("Asset generation failed", extra={"error": str(result)})
+            else:
+                key, value = result
+                output[key] = value
+
+        return output
