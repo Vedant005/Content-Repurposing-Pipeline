@@ -4,7 +4,6 @@ import Link from "next/link";
 const About = () => {
   return (
     <div>
-      {/* Hero */}
       <section className="border-b border-foreground">
         <div className="container py-12 md:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -31,7 +30,6 @@ const About = () => {
         </div>
       </section>
 
-      {/* Mission */}
       <section className="bg-foreground text-primary-foreground border-b border-foreground newsprint-texture">
         <div className="container py-16 md:py-20">
           <div className="max-w-3xl mx-auto text-center">
@@ -50,7 +48,6 @@ const About = () => {
         </div>
       </section>
 
-      {/* Details */}
       <section className="border-b border-foreground">
         <div className="container py-16 md:py-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
@@ -90,7 +87,6 @@ const About = () => {
         </div>
       </section>
 
-      {/* CTA */}
       <section>
         <div className="container py-16 text-center">
           <h2 className="font-serif text-3xl font-black mb-4">Try It Now</h2>
