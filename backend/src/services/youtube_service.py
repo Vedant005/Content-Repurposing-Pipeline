@@ -1,14 +1,11 @@
 import asyncio
 import re
 import os
-import glob
 import uuid
 import logging
 import yt_dlp
 from groq import AsyncGroq
 
-from google import genai
-from google.genai import types
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse
 from src.core.config import settings
@@ -20,9 +17,6 @@ ytt_api = YouTubeTranscriptApi()
 
 DOWNLOADS_DIR = "downloads"
 MAX_TRANSCRIPT_CHARS = 50_000
-# GEMINI_PRO_MODEL = "gemini-2.5-pro"
-# GEMINI_FLASH_MODEL = "gemini-1.5-flash"  
-
 
 class ContentProcessor:
 
