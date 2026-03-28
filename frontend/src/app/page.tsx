@@ -13,14 +13,10 @@ import FeatureCard from "@/components/FeatureCard";
 const Index = () => {
   return (
     <div>
-      {/* Hero */}
       <section className="border-b border-foreground">
         <div className="container py-10 md:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-0">
             <div className="lg:col-span-8 lg:border-r lg:border-foreground lg:pr-12">
-              {/* <span className="font-mono text-xs uppercase tracking-widest text-accent font-semibold">
-                ● Breaking Tool
-              </span> */}
               <h2 className="font-serif text-5xl sm:text-6xl lg:text-8xl font-black tracking-tighter leading-[0.9] mt-4 mb-6">
                 One Video.
                 <br />
@@ -92,7 +88,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Marquee ticker */}
       <section className="bg-foreground text-primary-foreground border-b border-foreground overflow-hidden">
         <div className="flex animate-marquee whitespace-nowrap py-3">
           {Array(2)
@@ -119,7 +114,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* How it works - inverted section */}
       <section className="bg-foreground text-primary-foreground border-b border-foreground newsprint-texture">
         <div className="container py-16 md:py-20">
           <div className="text-center mb-12">
@@ -167,7 +161,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Features grid */}
       <section className="border-b border-foreground">
         <div className="container py-16 md:py-20">
           <div className="text-center mb-12">
