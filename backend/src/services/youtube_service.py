@@ -128,7 +128,7 @@ class ContentProcessor:
         last_period = truncated.rfind(".")
         return truncated[: last_period + 1] if last_period > 0 else truncated
 
-
+    @staticmethod
     async def _call_groq_with_retry(
         prompt_type: str,
         system_instruction: str,
