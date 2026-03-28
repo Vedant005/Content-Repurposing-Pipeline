@@ -5,13 +5,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
-
 from src.core.config import settings
-from src.api import repurpose
 from src.db.session import engine
 from src.models.content import Base
-from src.middleware.session import SessionMiddleware
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,6 +24,13 @@ app = FastAPI(
     lifespan = lifespan
 )
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+from src.api import repurpose
+from src.middleware.session import SessionMiddleware
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -35,10 +38,6 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
-
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(SessionMiddleware)
 
