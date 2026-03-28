@@ -5,7 +5,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     GROQ_API_KEY: str
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
-    
+    ENV: str = "prod"
+
     class Config:
         env_file = ".env"
 
