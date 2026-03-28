@@ -34,8 +34,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["*"],    # Change from ["GET", "POST"] to ["*"]
+    allow_headers=["*"],
 )
 
 app.add_middleware(SessionMiddleware)
