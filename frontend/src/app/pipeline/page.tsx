@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import YouTubeInput from "@/components/YouTubeInput";
 import ResultCard from "@/components/ResultCard";
-import { usePipelineStore } from "@/store/usePipelineStore"; // <-- Import the store
+import { usePipelineStore } from "@/store/usePipelineStore"; 
 
 interface HistoryItem {
   id: number;
@@ -23,12 +23,11 @@ interface HistoryItem {
 }
 
 const Pipeline = () => {
-  // Local transient state
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-  // Persistent global state via Zustand
+
   const {
     results,
     setResults,
@@ -38,7 +37,6 @@ const Pipeline = () => {
     setIsHistoryVisible,
   } = usePipelineStore();
 
-  // Fetch history on mount
   useEffect(() => {
     fetchHistory();
   }, []);
@@ -124,7 +122,6 @@ const Pipeline = () => {
       const data = await response.json();
       const jobId = data.job_id;
 
-      // Optimistically refresh history to show the "processing" job
       fetchHistory();
       setIsHistoryVisible(true);
 
@@ -313,7 +310,6 @@ const Pipeline = () => {
               <span className="font-mono text-xs uppercase tracking-widest text-accent font-semibold">
                 ● Results
               </span>
-              {/* <div className="flex-1 border-t border-foreground" /> */}
             </div>
 
             <div className="grid grid-cols-1 gap-6">
