@@ -9,6 +9,7 @@ from src.schemas.content import JobStatusResponse, VideoRequest, HistoryResponse
 from src.db.session import get_db, AsyncSessionLocal
 from src.models.content import ContentJob
 from src.services.youtube_service import ContentProcessor
+from src.main import limiter
 
 logger = logging.getLogger("repurpose_api")
 logger.setLevel(logging.INFO)
@@ -126,6 +127,7 @@ async def process_video_task(job_id: int, url: str) -> None:
         )
 
 @router.post("/repurpose", status_code=202)
+@limiter.limit("5/minute;20/hour")
 async def repurpose_video(
     request: Request,                       
     payload: VideoRequest,                   
