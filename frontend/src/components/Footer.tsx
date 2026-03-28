@@ -45,11 +45,43 @@ const Footer = () => {
             <h4 className="font-sans text-xs uppercase tracking-widest font-semibold mb-3">
               Details
             </h4>
-            <p className="font-mono text-md ">
-              Made by Vedant
-              <br />
-              <FaGithub /> <TbWorld /> <CiLinkedin /> <FaXTwitter />
-              <br />© {new Date().getFullYear()} The Repurposer
+            <p className="font-mono text-md mb-2">Made by Vedant</p>
+            <div className="flex items-center gap-4 text-xl mb-2">
+              <a
+                href="https://github.com/Vedant005"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-accent transition-colors"
+              >
+                <FaGithub />
+              </a>
+              <a
+                href="https://vedantk.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-accent transition-colors"
+              >
+                <TbWorld />
+              </a>
+              <a
+                href="https://www.linkedin.com/in/vedant-kanekar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-accent transition-colors"
+              >
+                <CiLinkedin />
+              </a>
+              <a
+                href="https://x.com/VedantKane56217"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-accent transition-colors"
+              >
+                <FaXTwitter />
+              </a>
+            </div>
+            <p className="font-mono text-md">
+              © {new Date().getFullYear()} The Repurposer
             </p>
           </div>
         </div>
