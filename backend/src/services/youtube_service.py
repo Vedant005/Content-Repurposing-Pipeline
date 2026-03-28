@@ -55,6 +55,7 @@ class ContentProcessor:
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
                 "preferredquality": "128",
+                "max_filesize": 25 * 1024 * 1024,
             }],
             "outtmpl": f"{DOWNLOADS_DIR}/%(id)s_{job_token}.%(ext)s",
             "quiet": True,
@@ -69,10 +70,13 @@ class ContentProcessor:
             logger.error("yt-dlp download error", extra={"error": str(e), "url": video_url})
             return None
 
-
+    MAX_AUDIO_MB = 25
     @staticmethod
     async def transcribe_with_groq_whisper(audio_path: str) -> str | None:
-       
+        size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+        if size_mb > MAX_AUDIO_MB:
+            logger.warning("Audio too large for Whisper", extra={"size_mb": round(size_mb, 1)})
+            return None
         try:
             with open(audio_path, "rb") as f:
                 response = await groq_client.audio.transcriptions.create(
