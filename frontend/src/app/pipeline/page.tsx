@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import YouTubeInput from "@/components/YouTubeInput";
 import ResultCard from "@/components/ResultCard";
-import { usePipelineStore } from "@/store/usePipelineStore"; 
+import { usePipelineStore } from "@/store/usePipelineStore";
 
 interface HistoryItem {
   id: number;
@@ -26,7 +26,6 @@ const Pipeline = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-
 
   const {
     results,
@@ -43,9 +42,12 @@ const Pipeline = () => {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/history?limit=5", {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/history?limit=5`,
+        {
+          credentials: "include",
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -64,7 +66,7 @@ const Pipeline = () => {
 
     try {
       const statusRes = await fetch(
-        `http://localhost:8000/api/v1/status/${jobId}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/status/${jobId}`,
         { credentials: "include" },
       );
 
@@ -108,14 +110,17 @@ const Pipeline = () => {
     setResults(null);
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/repurpose", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/repurpose`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ url }),
         },
-        credentials: "include",
-        body: JSON.stringify({ url }),
-      });
+      );
 
       if (!response.ok) throw new Error("Failed to start job");
 
@@ -128,7 +133,7 @@ const Pipeline = () => {
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await fetch(
-            `http://localhost:8000/api/v1/status/${jobId}`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/status/${jobId}`,
             {
               credentials: "include",
             },
