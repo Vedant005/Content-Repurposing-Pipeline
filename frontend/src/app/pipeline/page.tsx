@@ -43,7 +43,7 @@ const Pipeline = () => {
   const fetchHistory = async () => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/history?limit=5`,
+        `${process.env.BACKEND_URL}/api/v1/history?limit=5`,
         {
           credentials: "include",
         },
@@ -66,7 +66,7 @@ const Pipeline = () => {
 
     try {
       const statusRes = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/status/${jobId}`,
+        `${process.env.BACKEND_URL}/api/v1/status/${jobId}`,
         { credentials: "include" },
       );
 
@@ -111,7 +111,7 @@ const Pipeline = () => {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/repurpose`,
+        `${process.env.BACKEND_URL}/api/v1/repurpose`,
         {
           method: "POST",
           headers: {
@@ -133,7 +133,7 @@ const Pipeline = () => {
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/status/${jobId}`,
+            `${process.env.BACKEND_URL}/api/v1/status/${jobId}`,
             {
               credentials: "include",
             },
