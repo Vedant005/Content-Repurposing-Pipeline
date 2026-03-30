@@ -10,7 +10,7 @@ SESSION_ID_RE = re.compile(r'^[a-f0-9]{32}$')
 class SessionMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         raw = request.cookies.get(SESSION_COOKIE)
-        session_id = raw if SESSION_ID_RE.match(raw) else uuid.uuid4().hex
+        session_id = raw if raw and SESSION_ID_RE.match(raw) else uuid.uuid4().hex
         if not session_id:
             session_id = uuid.uuid4().hex  
 
