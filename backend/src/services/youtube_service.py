@@ -17,6 +17,7 @@ ytt_api = YouTubeTranscriptApi()
 
 DOWNLOADS_DIR = "downloads"
 MAX_TRANSCRIPT_CHARS = 50_000
+MAX_AUDIO_MB = 25
 
 class ContentProcessor:
 
@@ -64,7 +65,7 @@ class ContentProcessor:
             logger.error("yt-dlp download error", extra={"error": str(e), "url": video_url})
             return None
 
-    MAX_AUDIO_MB = 25
+    
     @staticmethod
     async def transcribe_with_groq_whisper(audio_path: str) -> str | None:
         size_mb = os.path.getsize(audio_path) / (1024 * 1024)
