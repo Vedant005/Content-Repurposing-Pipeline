@@ -45,12 +45,12 @@ class ContentProcessor:
         os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
         ydl_opts = {
+            "max_filesize": MAX_AUDIO_MB * 1024 * 1024,
             "format": "bestaudio/best",
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
                 "preferredquality": "128",
-                "max_filesize": 25 * 1024 * 1024,
             }],
             "outtmpl": f"{DOWNLOADS_DIR}/%(id)s_{job_token}.%(ext)s",
             "quiet": True,
