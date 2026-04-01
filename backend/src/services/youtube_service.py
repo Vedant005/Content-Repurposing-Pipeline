@@ -3,6 +3,7 @@ import re
 import os
 import uuid
 import logging
+import tempfile
 import yt_dlp
 from groq import AsyncGroq
 
@@ -56,6 +57,19 @@ class ContentProcessor:
             "quiet": True,
         }
 
+        cookie_file_path = None
+        youtube_cookies = os.environ.get("YOUTUBE_COOKIES")
+
+        if youtube_cookies:
+            try:
+                fd, cookie_file_path = tempfile.mkstemp(suffix=".txt")
+                with os.fdopen(fd, 'w') as f:
+                    f.write(youtube_cookies)
+                
+                ydl_opts["cookiefile"] = cookie_file_path
+            except Exception as e:
+                logger.warning(f"Failed to write temp cookie file: {e}")
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(video_url, download=True)
@@ -64,6 +78,12 @@ class ContentProcessor:
         except Exception as e:
             logger.error("yt-dlp download error", extra={"error": str(e), "url": video_url})
             return None
+        finally:
+            if cookie_file_path and os.path.exists(cookie_file_path):
+                try:
+                    os.remove(cookie_file_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temp cookie file: {e}")
 
     
     @staticmethod
