@@ -47,7 +47,7 @@ class ContentProcessor:
 
         ydl_opts = {
             "max_filesize": MAX_AUDIO_MB * 1024 * 1024,
-            "format": "bestaudio/best",
+            "format": "m4a/bestaudio/best",
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
@@ -55,6 +55,12 @@ class ContentProcessor:
             }],
             "outtmpl": f"{DOWNLOADS_DIR}/%(id)s_{job_token}.%(ext)s",
             "quiet": True,
+            "extractor_args": {
+                "youtube": ["player_client=android,web"]
+            },
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
         }
 
         cookie_file_path = None
