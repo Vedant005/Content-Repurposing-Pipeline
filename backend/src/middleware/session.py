@@ -24,7 +24,7 @@ class SessionMiddleware(BaseHTTPMiddleware):
                 value=session_id,
                 max_age=SESSION_MAX_AGE,
                 httponly=True,   
-                samesite="lax",  
+                samesite="none",  
                 secure=True,
             )
         return response
