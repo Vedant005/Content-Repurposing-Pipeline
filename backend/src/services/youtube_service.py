@@ -37,8 +37,8 @@ class ContentProcessor:
         Synchronous Supadata call — runs in a thread via asyncio.to_thread.
 
         FIXES vs previous httpx approach:
-          1. Correct endpoint: SDK calls /v1/transcript (not /v1/youtube/transcript)
-          2. Correct param:    `url=` full YouTube URL (not `videoId=` bare ID)
+          1. Correct endpoint: SDK calls /v1/transcript
+          2. Correct param:    `url=` full YouTube URL
           3. text=True:       Returns content as a plain str, not a list of chunks
           4. BatchJob guard:  Some long videos return a job_id for async processing;
                               we detect and reject those rather than crashing on .content
@@ -60,7 +60,7 @@ class ContentProcessor:
                 )
                 return None
 
-            content = result.content  # str when text=True
+            content = result.content  
             if not content:
                 logger.warning("Supadata returned empty content", extra={"url": video_url})
                 return None
