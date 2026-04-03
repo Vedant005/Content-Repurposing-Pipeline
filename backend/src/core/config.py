@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     DATABASE_URL: str
     GROQ_API_KEY: str
+    SUPADATA_API_KEY: str
     ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "https://content-repurposing-pipeline.vercel.app"]
     ENV: str = "prod"
 
