@@ -10,6 +10,7 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  AlertCircle,
 } from "lucide-react";
 import YouTubeInput from "@/components/YouTubeInput";
 import ResultCard from "@/components/ResultCard";
@@ -26,6 +27,7 @@ const Pipeline = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     results,
@@ -63,6 +65,7 @@ const Pipeline = () => {
     setVideoUrl(url);
     setIsLoading(true);
     setResults(null);
+    setError(null);
 
     try {
       const statusRes = await fetch(
@@ -94,11 +97,14 @@ const Pipeline = () => {
           twitter: formattedTwitter,
           linkedin: statusData.linkedin_post || "",
         });
+      } else if (statusData.status === "failed") {
+        setError(statusData.error_message || "This job failed to process.");
       } else {
         console.error("Job is not completed yet:", statusData.status);
       }
     } catch (err) {
       console.error("Error loading history item:", err);
+      setError("Failed to load the details for this video.");
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +114,7 @@ const Pipeline = () => {
     setVideoUrl(url);
     setIsLoading(true);
     setResults(null);
+    setError(null);
 
     try {
       const response = await fetch(
@@ -122,7 +129,9 @@ const Pipeline = () => {
         },
       );
 
-      if (!response.ok) throw new Error("Failed to start job");
+      if (!response.ok) {
+        throw new Error("Failed to start job");
+      }
 
       const data = await response.json();
       const jobId = data.job_id;
@@ -172,18 +181,40 @@ const Pipeline = () => {
             statusData.error_message
           ) {
             clearInterval(pollInterval);
-            console.error("Job failed:", statusData.error_message);
+            const errMsg = statusData.error_message || "";
+            console.error("Job failed:", errMsg);
+
+            if (
+              errMsg.includes("413") ||
+              errMsg.includes("too large") ||
+              errMsg.includes("rate_limit_exceeded") ||
+              errMsg.includes("tokens")
+            ) {
+              setError(
+                "The transcript for this video is too long. Our AI context limit currently restricts processing to videos around 25-30 minutes. We'll be extending this capacity soon!",
+              );
+            } else {
+              setError(
+                errMsg ||
+                  "An error occurred while extracting content from this video.",
+              );
+            }
+
             setIsLoading(false);
             fetchHistory();
           }
         } catch (pollErr) {
           clearInterval(pollInterval);
           console.error("Polling error:", pollErr);
+          setError("Lost connection to the server while checking status.");
           setIsLoading(false);
         }
       }, 3000);
     } catch (err) {
       console.error("Submission error:", err);
+      setError(
+        "Failed to communicate with the server. Please check your connection.",
+      );
       setIsLoading(false);
     }
   };
@@ -206,13 +237,29 @@ const Pipeline = () => {
       </section>
 
       <section className="border-b border-foreground">
-        <div className="container py-8">
-          <YouTubeInput onSubmit={handleSubmit} isLoading={isLoading} />
-          {/* {videoUrl && !isLoading && results && (
-            <p className="font-mono text-xs text-muted-foreground mt-3">
-              Source: {videoUrl}
-            </p>
-          )} */}
+        <div className="container py-8 md:py-10">
+          <div>
+            <div className="mb-6 border-l-2 border-accent pl-4 py-1">
+              <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                Notice
+              </p>
+              <p className="font-body text-sm text-foreground/80">
+                Please avoid videos with more than{" "}
+                <strong>25-30 minutes</strong> of runtime. Longer videos
+                currently exceed our context limits. This capacity will be
+                extended in the near future.
+              </p>
+            </div>
+
+            <YouTubeInput onSubmit={handleSubmit} isLoading={isLoading} />
+
+            {error && (
+              <div className="mt-6 p-4 border border-red-500/20 bg-red-500/10 text-red-500 dark:text-red-400 font-body text-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">{error}</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -248,12 +295,15 @@ const Pipeline = () => {
                   <div
                     key={item.id}
                     onClick={() => {
-                      if (item.status === "completed") {
+                      if (
+                        item.status === "completed" ||
+                        item.status === "failed"
+                      ) {
                         loadHistoryItem(item.id, item.youtube_url);
                       }
                     }}
                     className={`flex items-center justify-between p-3 border border-foreground/10 bg-background transition-colors ${
-                      item.status === "completed"
+                      item.status === "completed" || item.status === "failed"
                         ? "hover:border-foreground/30 cursor-pointer"
                         : "opacity-80 cursor-default"
                     }`}
@@ -341,7 +391,7 @@ const Pipeline = () => {
         </section>
       )}
 
-      {!results && !isLoading && (
+      {!results && !isLoading && !error && (
         <section>
           <div className="container py-16 md:py-24 text-center">
             <div className="max-w-md mx-auto">
