@@ -1,7 +1,10 @@
-import type { Metadata } from "next";
 import "./globals.css";
+
+import type { Metadata } from "next";
+
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "The Content Times | Video Repurposing Pipeline",
@@ -19,6 +22,7 @@ export default function RootLayout({
         <Header />
 
         <main className="flex-grow max-w-screen-xl w-full mx-auto px-4 lg:px-8 border-x border-black bg-white/50">
+          <Analytics />
           {children}
         </main>
 
