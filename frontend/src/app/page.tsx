@@ -37,12 +37,12 @@ const Index = () => {
                   Start Repurposing
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link
+                {/* <Link
                   href="/about"
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] px-8 py-3 bg-transparent text-foreground font-sans text-xs uppercase tracking-widest font-semibold border border-foreground hover:bg-foreground hover:text-primary-foreground transition-all duration-200"
                 >
                   Learn More
-                </Link>
+                </Link> */}
               </div>
             </div>
 
