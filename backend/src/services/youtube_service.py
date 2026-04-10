@@ -9,12 +9,24 @@ from src.core.config import settings
 logger = logging.getLogger("repurpose_api")
 
 groq_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-
-# Supadata client — uses requests internally (sync), so we wrap calls in
-# asyncio.to_thread to avoid blocking the async event loop
 supadata_client = Supadata(api_key=settings.SUPADATA_API_KEY)
 
 MAX_TRANSCRIPT_CHARS = 50_000
+MAX_VIDEO_MINUTES = 25
+MAX_VIDEO_SECONDS = MAX_VIDEO_MINUTES * 60   # 1500 seconds
+
+
+class VideoTooLongError(Exception):
+    """Raised when a video exceeds MAX_VIDEO_MINUTES."""
+    def __init__(self, duration_seconds: int):
+        self.duration_seconds = duration_seconds
+        minutes = duration_seconds // 60
+        seconds = duration_seconds % 60
+        super().__init__(
+            f"Video is {minutes}m {seconds}s long, which exceeds the current "
+            f"{MAX_VIDEO_MINUTES}-minute limit. Support for longer videos will "
+            f"be added in a future update."
+        )
 
 
 class ContentProcessor:
@@ -32,17 +44,50 @@ class ContentProcessor:
         return match.group(1) if match else None
     
     @staticmethod
-    def _fetch_transcript_sync(video_url: str) -> str | None:
+    def _check_duration_sync(video_url: str) -> None:
         """
-        Synchronous Supadata call — runs in a thread via asyncio.to_thread.
+        Fetches video metadata via Supadata and raises VideoTooLongError
+        if the duration exceeds MAX_VIDEO_SECONDS.
 
-        FIXES vs previous httpx approach:
-          1. Correct endpoint: SDK calls /v1/transcript
-          2. Correct param:    `url=` full YouTube URL
-          3. text=True:       Returns content as a plain str, not a list of chunks
-          4. BatchJob guard:  Some long videos return a job_id for async processing;
-                              we detect and reject those rather than crashing on .content
+        Raises:
+            VideoTooLongError: if video is too long.
+            SupadataError:     if the metadata call itself fails.
         """
+        try:
+            meta = supadata_client.metadata(url=video_url)
+        except SupadataError as e:
+            # If metadata can't be fetched we log and allow processing to
+            # continue — better to attempt and potentially fail at transcript
+            # stage than to block on a metadata error.
+            logger.warning(
+                "Could not fetch metadata for duration check — proceeding",
+                extra={"url": video_url, "error": str(e)},
+            )
+            return
+
+        duration = (
+            meta.media.duration
+            if meta.media and meta.media.duration is not None
+            else None
+        )
+
+        if duration is None:
+            logger.warning(
+                "Duration not available in metadata — proceeding without check",
+                extra={"url": video_url},
+            )
+            return
+
+        logger.info(
+            "Video duration checked",
+            extra={"url": video_url, "duration_seconds": duration, "limit": MAX_VIDEO_SECONDS},
+        )
+
+        if duration > MAX_VIDEO_SECONDS:
+            raise VideoTooLongError(duration)
+
+    @staticmethod
+    def _fetch_transcript_sync(video_url: str) -> str | None:
         try:
             result = supadata_client.transcript(
                 url=video_url,
@@ -80,11 +125,20 @@ class ContentProcessor:
     @staticmethod
     async def get_transcript(video_id: str) -> str | None:
         """
+        1. Checks video duration — raises VideoTooLongError if > 25 min.
+        2. Fetches transcript via Supadata.
+
+        VideoTooLongError is intentionally NOT caught here so it propagates
+        up to _run_job in router.py, which writes it to job.error_message
+        and marks the job as failed with a user-readable message.
+
         Fetches the transcript via Supadata. The Supadata SDK uses the
         `requests` library (synchronous), so the call is offloaded to a
         thread pool with asyncio.to_thread to keep the event loop free.
         """
         video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+        await asyncio.to_thread(ContentProcessor._check_duration_sync, video_url)
 
         transcript = await asyncio.to_thread(
             ContentProcessor._fetch_transcript_sync, video_url
