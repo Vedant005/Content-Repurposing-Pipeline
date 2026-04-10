@@ -23,6 +23,19 @@ interface HistoryItem {
   created_at: string;
 }
 
+// Sentinel string written by VideoTooLongError on the backend.
+// Matching on this prefix means we show the specific duration message
+// instead of the generic error, without coupling frontend/backend tightly.
+const VIDEO_TOO_LONG_SENTINEL = "exceeds the current";
+
+function isVideoTooLongError(message: string): boolean {
+  return (
+    message.includes(VIDEO_TOO_LONG_SENTINEL) ||
+    message.includes("minute limit") ||
+    message.includes("future update")
+  );
+}
+
 const Pipeline = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -61,6 +74,38 @@ const Pipeline = () => {
     }
   };
 
+  const parseTweets = (tweets: unknown): string => {
+    if (Array.isArray(tweets)) return tweets.join("\n\n");
+    if (typeof tweets === "string") {
+      try {
+        const parsed = JSON.parse(tweets);
+        return Array.isArray(parsed) ? parsed.join("\n\n") : tweets;
+      } catch {
+        return tweets;
+      }
+    }
+    return "";
+  };
+
+  const resolveError = (errMsg: string): string => {
+    // Check for the backend VideoTooLongError message first — most specific
+    if (isVideoTooLongError(errMsg)) {
+      return "This video exceeds the current 25-minute limit. Support for longer videos will be added in a future update.";
+    }
+    // Groq context window overflow
+    if (
+      errMsg.includes("413") ||
+      errMsg.includes("too large") ||
+      errMsg.includes("rate_limit_exceeded") ||
+      errMsg.includes("tokens")
+    ) {
+      return "The transcript for this video is too long. Our AI context limit currently restricts processing to videos around 25-30 minutes. We'll be extending this capacity soon!";
+    }
+    return (
+      errMsg || "An error occurred while extracting content from this video."
+    );
+  };
+
   const loadHistoryItem = async (jobId: number, url: string) => {
     setVideoUrl(url);
     setIsLoading(true);
@@ -78,27 +123,13 @@ const Pipeline = () => {
       const statusData = await statusRes.json();
 
       if (statusData.status === "completed") {
-        let formattedTwitter = "";
-        if (Array.isArray(statusData.tweets)) {
-          formattedTwitter = statusData.tweets.join("\n\n");
-        } else if (typeof statusData.tweets === "string") {
-          try {
-            const parsed = JSON.parse(statusData.tweets);
-            formattedTwitter = Array.isArray(parsed)
-              ? parsed.join("\n\n")
-              : statusData.tweets;
-          } catch (e) {
-            formattedTwitter = statusData.tweets;
-          }
-        }
-
         setResults({
           blog: statusData.blog_content || "",
-          twitter: formattedTwitter,
+          twitter: parseTweets(statusData.tweets),
           linkedin: statusData.linkedin_post || "",
         });
       } else if (statusData.status === "failed") {
-        setError(statusData.error_message || "This job failed to process.");
+        setError(resolveError(statusData.error_message || ""));
       } else {
         console.error("Job is not completed yet:", statusData.status);
       }
@@ -153,27 +184,11 @@ const Pipeline = () => {
 
           if (statusData.status === "completed") {
             clearInterval(pollInterval);
-
-            let formattedTwitter = "";
-            if (Array.isArray(statusData.tweets)) {
-              formattedTwitter = statusData.tweets.join("\n\n");
-            } else if (typeof statusData.tweets === "string") {
-              try {
-                const parsed = JSON.parse(statusData.tweets);
-                formattedTwitter = Array.isArray(parsed)
-                  ? parsed.join("\n\n")
-                  : statusData.tweets;
-              } catch (e) {
-                formattedTwitter = statusData.tweets;
-              }
-            }
-
             setResults({
               blog: statusData.blog_content || "",
-              twitter: formattedTwitter,
+              twitter: parseTweets(statusData.tweets),
               linkedin: statusData.linkedin_post || "",
             });
-
             setIsLoading(false);
             fetchHistory();
           } else if (
@@ -181,25 +196,7 @@ const Pipeline = () => {
             statusData.error_message
           ) {
             clearInterval(pollInterval);
-            const errMsg = statusData.error_message || "";
-            console.error("Job failed:", errMsg);
-
-            if (
-              errMsg.includes("413") ||
-              errMsg.includes("too large") ||
-              errMsg.includes("rate_limit_exceeded") ||
-              errMsg.includes("tokens")
-            ) {
-              setError(
-                "The transcript for this video is too long. Our AI context limit currently restricts processing to videos around 25-30 minutes. We'll be extending this capacity soon!",
-              );
-            } else {
-              setError(
-                errMsg ||
-                  "An error occurred while extracting content from this video.",
-              );
-            }
-
+            setError(resolveError(statusData.error_message || ""));
             setIsLoading(false);
             fetchHistory();
           }
@@ -252,13 +249,6 @@ const Pipeline = () => {
             </div>
 
             <YouTubeInput onSubmit={handleSubmit} isLoading={isLoading} />
-
-            {error && (
-              <div className="mt-6 p-4 border border-red-500/20 bg-red-500/10 text-red-500 dark:text-red-400 font-body text-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="leading-relaxed">{error}</p>
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -335,6 +325,13 @@ const Pipeline = () => {
             )}
           </div>
         </section>
+      )}
+
+      {error && (
+        <div className="mt-6 p-4 border border-red-500/20 bg-red-500/10 text-red-500 dark:text-red-400 font-body text-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <p className="leading-relaxed">{error}</p>
+        </div>
       )}
 
       {isLoading && (
