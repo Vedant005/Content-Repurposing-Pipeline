@@ -515,7 +515,7 @@ This provides lightweight user isolation without requiring authentication.
 Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/content-repurposing-pipeline.git
+git clone https://github.com/Vedant005/Content-Repurposing-Pipeline.git
 ```
 
 Install dependencies
