@@ -170,7 +170,7 @@ class ContentProcessor:
         prompt_type: str,
         system_instruction: str,
         content: str,
-        model: str = "llama-3.3-70b-versatile",
+        model: str = "openai/gpt-oss-120b",
         retries: int = 3,
     ) -> tuple[str, str]:
         last_error = None
@@ -204,7 +204,7 @@ class ContentProcessor:
                     "Use Markdown formatting."
                 ),
                 safe_transcript,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
             ),
             ContentProcessor._call_groq_with_retry(
                 "tweets",
@@ -215,7 +215,7 @@ class ContentProcessor:
                     "No markdown, no code fences, no preamble — just the JSON array."
                 ),
                 safe_transcript,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
             ),
             ContentProcessor._call_groq_with_retry(
                 "linkedin",
@@ -224,7 +224,7 @@ class ContentProcessor:
                     "Write a professional, engaging LinkedIn post summarising this video."
                 ),
                 safe_transcript,
-                model="llama-3.1-8b-instant",
+                model="openai/gpt-oss-20b",
             ),
             return_exceptions=True,
         )
