@@ -2,20 +2,21 @@ import asyncio
 import json
 import logging
 import re
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.db.session import AsyncSessionLocal, get_db
 from src.main import limiter
-from src.models.content import ContentAsset, ContentJob
+from src.models.content import ContentAsset, ContentJob, VideoTranscript
 from src.schemas.content import (
     AssetDetailResponse,
     HistoryResponse,
     JobStatusResponse,
     VideoRequest,
 )
+from src.services.chunker import TranscriptChunker
+from src.services.map_reduce import map_reduce_summarizer
+from src.services.transcript_service import transcript_service
 from src.services.youtube_service import ContentProcessor
 
 logger = logging.getLogger("repurpose_api")
@@ -23,7 +24,7 @@ logger.setLevel(logging.INFO)
 
 router = APIRouter()
 
-JOB_TIMEOUT_SECONDS = 600
+JOB_TIMEOUT_SECONDS = 900
 SESSION_COOKIE = "rsid"
 HISTORY_MAX_LIMIT = 50
 
@@ -49,7 +50,9 @@ def clean_json_string(json_str: str) -> str:
 async def _mark_job_failed(job_id: int, reason: str) -> None:
     async with AsyncSessionLocal() as fail_db:
         try:
-            result = await fail_db.execute(select(ContentJob).where(ContentJob.id == job_id))
+            result = await fail_db.execute(
+                select(ContentJob).where(ContentJob.id == job_id)
+            )
             job = result.scalar_one_or_none()
             if job:
                 job.status = "failed"
@@ -80,17 +83,52 @@ async def _run_job(job_id: int, url: str) -> None:
             if not video_id:
                 raise ValueError("Could not extract video ID from URL.")
 
-            logger.info("Starting transcript fetch", extra={"job_id": job_id, "video_id": video_id})
+            job.video_id = video_id
+            logger.info("Starting transcript retrieval for video %s (job %d)", video_id, job_id)
 
-            transcript = await ContentProcessor.get_transcript(video_id)
-            if not transcript:
-                raise ValueError(
-                    "Transcript unavailable: captions missing and audio fallback failed."
-                )
+            # 1. Ingest timestamped segments with DB caching
+            segments, metadata = await transcript_service.get_or_fetch_transcript(video_id, url)
+            if not segments:
+                raise ValueError("Transcript unavailable: captions missing and provider returned empty segments.")
 
-            logger.info("Transcript ready", extra={"job_id": job_id, "chars": len(transcript)})
+            # Link transcript ID if exists
+            transcript_record = await db.execute(select(VideoTranscript).where(VideoTranscript.video_id == video_id))
+            t_row = transcript_record.scalar_one_or_none()
+            if t_row:
+                job.transcript_id = t_row.id
 
-            content = await ContentProcessor.generate_assets(transcript)
+            # 2. Hierarchical Map-Reduce into Canonical Video Brief (cached if already computed)
+            brief = await transcript_service.get_cached_brief(video_id)
+            if not brief:
+                logger.info("Generating Canonical Video Brief via Map-Reduce for job %d", job_id)
+                chunker = TranscriptChunker(target_chars=6000, overlap_segments=2)
+                chunks = chunker.create_chunks(segments)
+                summaries, brief = await map_reduce_summarizer.run(chunks, metadata)
+                await transcript_service.cache_brief(video_id, brief)
+            else:
+                logger.info("Reusing cached Canonical Video Brief for job %d", job_id)
+
+            # 3. Generate multi-format assets informed by Canonical Brief and segments
+            combined_context = (
+                f"Video Title: {brief.title}\n\n"
+                f"Executive Summary:\n{brief.executive_summary}\n\n"
+                f"Core Arguments:\n- " + "\n- ".join(brief.core_arguments) + "\n\n"
+                "Sample Transcript Segments:\n"
+                + "\n".join([f"[{s.start_formatted}] {s.text}" for s in segments[:30]])
+            )
+
+            content = await ContentProcessor.generate_assets(combined_context)
+
+            # 3. Generate multi-format assets informed by Canonical Brief and segments
+            combined_context = (
+                f"Video Title: {brief.title}\n\n"
+                f"Executive Summary:\n{brief.executive_summary}\n\n"
+                f"Core Arguments:\n- " + "\n- ".join(brief.core_arguments) + "\n\n"
+                f"Sample Transcript Segments:\n"
+                + "\n".join([f"[{s.start_formatted}] {s.text}" for s in segments[:30]])
+            )
+
+            content = await ContentProcessor.generate_assets(combined_context)
 
             try:
                 raw_tweets = content.get("tweets") or "[]"
@@ -136,14 +174,24 @@ async def _run_job(job_id: int, url: str) -> None:
                     content={"body": linkedin_val} if linkedin_val else None,
                 ),
             ]
+            if brief.suggested_chapters:
+                assets_to_add.append(
+                    ContentAsset(
+                        job_id=job.id,
+                        asset_type="chapters",
+                        status="completed",
+                        content={"chapters": brief.suggested_chapters},
+                    )
+                )
+
             db.add_all(assets_to_add)
 
             await db.commit()
-            logger.info("Job completed with relational assets", extra={"job_id": job_id})
+            logger.info("Job %d completed successfully with all relational assets", job_id)
 
         except Exception as e:
             await db.rollback()
-            logger.error("Job failed", extra={"job_id": job_id, "error": str(e)})
+            logger.error("Job %d failed: %s", job_id, e)
             await _mark_job_failed(job_id, str(e))
 
 
@@ -262,7 +310,9 @@ async def check_status(
         blog_content=job.get_effective_blog(),
         tweets=job.get_effective_tweets(),
         linkedin_post=job.get_effective_linkedin(),
-        assets=[AssetDetailResponse.model_validate(a) for a in job.assets] if job.assets else None,
+        assets=[AssetDetailResponse.model_validate(a) for a in job.assets]
+        if job.assets
+        else None,
     )
 
 
