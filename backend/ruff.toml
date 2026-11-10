@@ -12,7 +12,11 @@ select = [
 ]
 ignore = [
     "B008", # do not perform function calls in argument defaults (FastAPI Depends)
+    "E501", # line too long (prompts and schemas contain natural text)
 ]
+
+[lint.per-file-ignores]
+"src/main.py" = ["E402"] # limiter circular import
 
 [lint.isort]
 known-first-party = ["src"]
