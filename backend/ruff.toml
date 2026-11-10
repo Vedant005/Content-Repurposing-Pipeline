@@ -1,0 +1,18 @@
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "B008", # do not perform function calls in argument defaults (FastAPI Depends)
+]
+
+[lint.isort]
+known-first-party = ["src"]
