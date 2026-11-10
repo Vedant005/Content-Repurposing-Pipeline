@@ -87,6 +87,19 @@ class CanonicalVideoBrief(BaseModel):
     suggested_chapters: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class AssetCritiqueItem(BaseModel):
+    asset_name: str
+    tone_score: int = Field(..., ge=1, le=10)
+    clarity_score: int = Field(..., ge=1, le=10)
+    passed: bool
+    critique_notes: str
+    actionable_revisions: list[str] = Field(default_factory=list)
+
+
+class AICritiqueOutput(BaseModel):
+    critiques: list[AssetCritiqueItem]
+
+
 # ── API Responses (Preserving Backward Compatibility) ──────────────────────────
 
 
