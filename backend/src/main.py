@@ -30,7 +30,7 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-from src.api import repurpose
+from src.api import brand, repurpose
 from src.middleware.session import SessionMiddleware
 
 app.add_middleware(
@@ -44,6 +44,7 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware)
 
 app.include_router(repurpose.router, prefix="/api/v1", tags=["Repurpose"])
+app.include_router(brand.router, prefix="/api/v1", tags=["Brand Profiles"])
 
 
 @app.get("/health")
