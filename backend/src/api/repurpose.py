@@ -1,15 +1,22 @@
-import json
-import re
 import asyncio
+import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+import re
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
-from src.schemas.content import JobStatusResponse, VideoRequest, HistoryResponse
-from src.db.session import get_db, AsyncSessionLocal
-from src.models.content import ContentJob
-from src.services.youtube_service import ContentProcessor
+
+from src.db.session import AsyncSessionLocal, get_db
 from src.main import limiter
+from src.models.content import ContentAsset, ContentJob
+from src.schemas.content import (
+    AssetDetailResponse,
+    HistoryResponse,
+    JobStatusResponse,
+    VideoRequest,
+)
+from src.services.youtube_service import ContentProcessor
 
 logger = logging.getLogger("repurpose_api")
 logger.setLevel(logging.INFO)
@@ -17,12 +24,11 @@ logger.setLevel(logging.INFO)
 router = APIRouter()
 
 JOB_TIMEOUT_SECONDS = 600
-SESSION_COOKIE = "rsid"         
-HISTORY_MAX_LIMIT = 50          
+SESSION_COOKIE = "rsid"
+HISTORY_MAX_LIMIT = 50
 
 
 def get_session_id(request: Request) -> str:
-
     session_id = getattr(request.state, "session_id", None)
     if not session_id:
         raise HTTPException(
@@ -31,8 +37,8 @@ def get_session_id(request: Request) -> str:
         )
     return session_id
 
+
 def clean_json_string(json_str: str) -> str:
-  
     if not json_str:
         return "[]"
     cleaned = re.sub(r"```json\s*", "", json_str)
@@ -41,12 +47,9 @@ def clean_json_string(json_str: str) -> str:
 
 
 async def _mark_job_failed(job_id: int, reason: str) -> None:
-   
     async with AsyncSessionLocal() as fail_db:
         try:
-            result = await fail_db.execute(
-                select(ContentJob).where(ContentJob.id == job_id)
-            )
+            result = await fail_db.execute(select(ContentJob).where(ContentJob.id == job_id))
             job = result.scalar_one_or_none()
             if job:
                 job.status = "failed"
@@ -93,21 +96,50 @@ async def _run_job(job_id: int, url: str) -> None:
                 raw_tweets = content.get("tweets") or "[]"
                 tweets_json = json.loads(clean_json_string(raw_tweets))
                 if not isinstance(tweets_json, list):
-                    raise ValueError("Tweets response is not a JSON list")
-            except (json.JSONDecodeError, ValueError) as parse_err:
+                    raise TypeError("Tweets response is not a JSON list")
+            except (json.JSONDecodeError, TypeError, ValueError) as parse_err:
                 logger.warning(
                     "Tweet JSON parse failed, saving raw",
                     extra={"job_id": job_id, "error": str(parse_err)},
                 )
                 tweets_json = {"parse_error": str(parse_err), "raw": content.get("tweets")}
 
-            job.blog_content  = content.get("blog")
-            job.tweets        = tweets_json
-            job.linkedin_post = content.get("linkedin")
-            job.status        = "completed"
+            blog_val = content.get("blog")
+            linkedin_val = content.get("linkedin")
+
+            # Update legacy job columns for immediate backward compatibility
+            job.blog_content = blog_val
+            job.tweets = tweets_json
+            job.linkedin_post = linkedin_val
+            job.status = "completed"
+
+            # Populate relational ContentAsset rows
+            assets_to_add = [
+                ContentAsset(
+                    job_id=job.id,
+                    asset_type="blog",
+                    status="completed" if blog_val else "failed",
+                    content={"markdown_body": blog_val} if blog_val else None,
+                ),
+                ContentAsset(
+                    job_id=job.id,
+                    asset_type="twitter_thread",
+                    status="completed" if isinstance(tweets_json, list) else "failed",
+                    content={"thread": tweets_json}
+                    if isinstance(tweets_json, list)
+                    else tweets_json,
+                ),
+                ContentAsset(
+                    job_id=job.id,
+                    asset_type="linkedin_post",
+                    status="completed" if linkedin_val else "failed",
+                    content={"body": linkedin_val} if linkedin_val else None,
+                ),
+            ]
+            db.add_all(assets_to_add)
 
             await db.commit()
-            logger.info("Job completed", extra={"job_id": job_id})
+            logger.info("Job completed with relational assets", extra={"job_id": job_id})
 
         except Exception as e:
             await db.rollback()
@@ -119,22 +151,22 @@ async def process_video_task(job_id: int, url: str) -> None:
     logger.info("Background task started", extra={"job_id": job_id, "url": url})
     try:
         await asyncio.wait_for(_run_job(job_id, url), timeout=JOB_TIMEOUT_SECONDS)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Job timed out", extra={"job_id": job_id, "timeout": JOB_TIMEOUT_SECONDS})
         await _mark_job_failed(
             job_id,
             f"Job exceeded the {JOB_TIMEOUT_SECONDS}s timeout and was cancelled.",
         )
 
+
 @router.post("/repurpose", status_code=202)
 @limiter.limit("5/minute;20/hour")
 async def repurpose_video(
-    request: Request,                       
-    payload: VideoRequest,                   
-    background_tasks: BackgroundTasks,      
+    request: Request,
+    payload: VideoRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-   
     url_str = str(payload.url)
 
     video_id = ContentProcessor.get_video_id(url_str)
@@ -145,12 +177,12 @@ async def repurpose_video(
         )
 
     session_id = get_session_id(request)
-    
+
     existing = await db.execute(
         select(ContentJob).where(
             ContentJob.session_id == session_id,
             ContentJob.youtube_url == url_str,
-            ContentJob.status == "processing",
+            ContentJob.status.in_(["processing", "queued"]),
         )
     )
     if existing.scalar_one_or_none():
@@ -158,11 +190,13 @@ async def repurpose_video(
             status_code=409,
             detail="A job for this URL is already processing.",
         )
-    
+
     new_job = ContentJob(
         youtube_url=url_str,
+        video_id=video_id,
         status="processing",
-        session_id=session_id,               
+        session_id=session_id,
+        brand_profile_id=payload.brand_profile_id,
     )
     db.add(new_job)
     await db.commit()
@@ -189,16 +223,7 @@ async def get_history(
     limit: int = 20,
     offset: int = 0,
 ):
-    """
-    Supports pagination:
-      GET /history            → first 20 jobs
-      GET /history?offset=20  → next 20 jobs
-      GET /history?limit=5    → only 5 jobs
-
-    Only lightweight fields are returned (no blog_content / tweets body)
-    to keep the payload small. Use GET /status/{job_id} for full results.
-    """
-    limit = min(limit, HISTORY_MAX_LIMIT)   
+    limit = min(limit, HISTORY_MAX_LIMIT)
     session_id = get_session_id(request)
 
     result = await db.execute(
@@ -214,7 +239,7 @@ async def get_history(
 @router.get("/status/{job_id}", response_model=JobStatusResponse)
 async def check_status(
     job_id: int,
-    request: Request,                          
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     session_id = get_session_id(request)
@@ -222,13 +247,41 @@ async def check_status(
     result = await db.execute(
         select(ContentJob).where(
             ContentJob.id == job_id,
-            ContentJob.session_id == session_id,  
+            ContentJob.session_id == session_id,
         )
     )
     job = result.scalar_one_or_none()
 
     if not job:
-     
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
 
-    return job
+    return JobStatusResponse(
+        id=job.id,
+        status=job.status,
+        error_message=job.error_message,
+        blog_content=job.get_effective_blog(),
+        tweets=job.get_effective_tweets(),
+        linkedin_post=job.get_effective_linkedin(),
+        assets=[AssetDetailResponse.model_validate(a) for a in job.assets] if job.assets else None,
+    )
+
+
+@router.get("/jobs/{job_id}/assets", response_model=list[AssetDetailResponse])
+async def get_job_assets(
+    job_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    session_id = get_session_id(request)
+
+    result = await db.execute(
+        select(ContentJob).where(
+            ContentJob.id == job_id,
+            ContentJob.session_id == session_id,
+        )
+    )
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+
+    return [AssetDetailResponse.model_validate(a) for a in job.assets]
