@@ -147,3 +147,93 @@ class DeterministicVerifier:
             last_time = t_sec
 
         return len(errors) == 0, errors
+
+    @staticmethod
+    def evaluate_tone_compliance(text: str, tone_guidelines: str | None) -> tuple[int, list[str]]:
+        """Evaluates textual content against specific brand tone constraints."""
+        if not tone_guidelines or not text:
+            return 9, []
+
+        guidelines_lower = tone_guidelines.lower()
+        violations: list[str] = []
+        score = 10
+
+        # 1. No emojis constraint
+        if any(term in guidelines_lower for term in ["no emoji", "no emojis", "without emoji"]):
+            emoji_matches = re.findall(r"[\U00010000-\U0010ffff]", text)
+            if emoji_matches:
+                score -= 4
+                violations.append(
+                    f"Content contains emojis ({''.join(set(emoji_matches))[:5]}) despite 'no emojis' guideline."
+                )
+
+        # 2. No jargon / buzzwords constraint
+        if any(term in guidelines_lower for term in ["no jargon", "no buzzwords", "plain english"]):
+            buzzwords = ["synergy", "paradigm shift", "leverage", "move the needle", "hyper-growth"]
+            found = [
+                b for b in buzzwords if re.search(r"\b" + re.escape(b) + r"\b", text, re.IGNORECASE)
+            ]
+            if found:
+                score -= 3
+                violations.append(f"Content contains forbidden buzzwords: {', '.join(found)}.")
+
+        # 3. No excessive exclamation marks
+        if any(
+            term in guidelines_lower for term in ["understated", "no exclamation", "calm", "formal"]
+        ):
+            exclamations = len(re.findall(r"!", text))
+            if exclamations > 2:
+                score -= 3
+                violations.append(
+                    f"Content contains {exclamations} exclamation marks which violates calm/formal tone."
+                )
+
+        score = max(1, min(10, score))
+        return score, violations
+
+    @staticmethod
+    def evaluate_tone_compliance(
+        text: str, tone_guidelines: str | None
+    ) -> tuple[int, list[str]]:
+        """Evaluates textual content against specific brand tone constraints."""
+        if not tone_guidelines or not text:
+            return 9, []
+
+        guidelines_lower = tone_guidelines.lower()
+        violations: list[str] = []
+        score = 10
+
+        # 1. No emojis constraint
+        if any(term in guidelines_lower for term in ["no emoji", "no emojis", "without emoji"]):
+            emoji_matches = re.findall(r"[\U00010000-\U0010ffff]", text)
+            if emoji_matches:
+                score -= 4
+                violations.append(
+                    f"Content contains emojis ({''.join(set(emoji_matches))[:5]}) despite 'no emojis' guideline."
+                )
+
+        # 2. No jargon / buzzwords constraint
+        if any(term in guidelines_lower for term in ["no jargon", "no buzzwords", "plain english"]):
+            buzzwords = ["synergy", "paradigm shift", "leverage", "move the needle", "hyper-growth"]
+            found = [
+                b
+                for b in buzzwords
+                if re.search(r"\b" + re.escape(b) + r"\b", text, re.IGNORECASE)
+            ]
+            if found:
+                score -= 3
+                violations.append(f"Content contains forbidden buzzwords: {', '.join(found)}.")
+
+        # 3. No excessive exclamation marks
+        if any(
+            term in guidelines_lower for term in ["understated", "no exclamation", "calm", "formal"]
+        ):
+            exclamations = len(re.findall(r"!", text))
+            if exclamations > 2:
+                score -= 3
+                violations.append(
+                    f"Content contains {exclamations} exclamation marks which violates calm/formal tone."
+                )
+
+        score = max(1, min(10, score))
+        return score, violations
