@@ -58,7 +58,7 @@ const Pipeline = () => {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/brand-profiles`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       if (res.ok) {
         const data = await res.json();
@@ -73,7 +73,7 @@ const Pipeline = () => {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/history?limit=10`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       if (res.ok) {
         const data = await res.json();
@@ -89,7 +89,11 @@ const Pipeline = () => {
   const parseTweets = (tweets: unknown): string => {
     if (Array.isArray(tweets)) {
       return tweets
-        .map((t) => (typeof t === "object" && t !== null && "content" in t ? (t as any).content : String(t)))
+        .map((t) =>
+          typeof t === "object" && t !== null && "content" in t
+            ? (t as any).content
+            : String(t),
+        )
         .join("\n\n---\n\n");
     }
     if (typeof tweets === "string") {
@@ -97,7 +101,11 @@ const Pipeline = () => {
         const parsed = JSON.parse(tweets);
         if (Array.isArray(parsed)) {
           return parsed
-            .map((t) => (typeof t === "object" && t !== null && "content" in t ? (t as any).content : String(t)))
+            .map((t) =>
+              typeof t === "object" && t !== null && "content" in t
+                ? (t as any).content
+                : String(t),
+            )
             .join("\n\n---\n\n");
         }
         return tweets;
@@ -111,10 +119,10 @@ const Pipeline = () => {
   const loadJobAssets = async (jobId: number) => {
     try {
       const [statusRes, assetsRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/status/${jobId}`, {
+        fetch(`${process.env.BACKEND_URL}/api/v1/status/${jobId}`, {
           credentials: "include",
         }),
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/jobs/${jobId}/assets`, {
+        fetch(`${process.env.BACKEND_URL}/api/v1/jobs/${jobId}/assets`, {
           credentials: "include",
         }),
       ]);
@@ -125,7 +133,9 @@ const Pipeline = () => {
       let chaptersList: ChapterItem[] = [];
       if (assetsRes.ok) {
         const assetsData = await assetsRes.json();
-        const chaptersAsset = assetsData.find((a: any) => a.asset_type === "chapters");
+        const chaptersAsset = assetsData.find(
+          (a: any) => a.asset_type === "chapters",
+        );
         if (chaptersAsset?.content?.chapters) {
           chaptersList = chaptersAsset.content.chapters;
         }
@@ -174,12 +184,14 @@ const Pipeline = () => {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.detail || "Failed to submit video for repurposing.");
+        throw new Error(
+          errJson.detail || "Failed to submit video for repurposing.",
+        );
       }
 
       const data = await response.json();
@@ -252,7 +264,9 @@ ${
             Content Repurposing Studio
           </h2>
           <p className="font-body text-muted-foreground mt-4 max-w-xl">
-            Transform YouTube videos into SEO blog posts, Twitter threads, LinkedIn thought-leadership posts, and timestamped chapters with deterministic quote grounding.
+            Transform YouTube videos into SEO blog posts, Twitter threads,
+            LinkedIn thought-leadership posts, and timestamped chapters with
+            deterministic quote grounding.
           </p>
         </div>
       </section>
@@ -320,18 +334,24 @@ ${
                   <div
                     key={item.id}
                     onClick={() => {
-                      if (item.status === "completed" || item.status === "partial_success") {
+                      if (
+                        item.status === "completed" ||
+                        item.status === "partial_success"
+                      ) {
                         loadHistoryItem(item.id, item.youtube_url);
                       }
                     }}
                     className={`flex items-center justify-between p-3 border border-foreground/10 bg-background transition-colors ${
-                      item.status === "completed" || item.status === "partial_success"
+                      item.status === "completed" ||
+                      item.status === "partial_success"
                         ? "hover:border-foreground/40 cursor-pointer"
                         : "opacity-80 cursor-default"
                     } ${activeJobId === item.id ? "border-foreground bg-muted/30" : ""}`}
                   >
                     <div className="truncate pr-4 flex-1">
-                      <p className="font-mono text-sm truncate">{item.youtube_url}</p>
+                      <p className="font-mono text-sm truncate">
+                        {item.youtube_url}
+                      </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span
@@ -339,10 +359,10 @@ ${
                           item.status === "completed"
                             ? "text-green-700 font-bold"
                             : item.status === "partial_success"
-                            ? "text-amber-700 font-bold"
-                            : item.status === "failed"
-                            ? "text-red-600 font-bold"
-                            : "text-accent animate-pulse"
+                              ? "text-amber-700 font-bold"
+                              : item.status === "failed"
+                                ? "text-red-600 font-bold"
+                                : "text-accent animate-pulse"
                         }`}
                       >
                         [{item.status}]
@@ -378,7 +398,9 @@ ${
                 <span className="font-mono text-xs uppercase tracking-widest text-accent font-semibold block">
                   ● Publication Workbench
                 </span>
-                <h3 className="font-serif text-2xl font-bold mt-1">Repurposed Content Assets</h3>
+                <h3 className="font-serif text-2xl font-bold mt-1">
+                  Repurposed Content Assets
+                </h3>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -387,7 +409,9 @@ ${
                   <button
                     onClick={() => setActiveTab("blog")}
                     className={`px-3 py-1.5 transition-colors ${
-                      activeTab === "blog" ? "bg-foreground text-primary-foreground font-bold" : "hover:bg-muted"
+                      activeTab === "blog"
+                        ? "bg-foreground text-primary-foreground font-bold"
+                        : "hover:bg-muted"
                     }`}
                   >
                     Blog
@@ -395,7 +419,9 @@ ${
                   <button
                     onClick={() => setActiveTab("twitter")}
                     className={`px-3 py-1.5 border-l border-foreground transition-colors ${
-                      activeTab === "twitter" ? "bg-foreground text-primary-foreground font-bold" : "hover:bg-muted"
+                      activeTab === "twitter"
+                        ? "bg-foreground text-primary-foreground font-bold"
+                        : "hover:bg-muted"
                     }`}
                   >
                     X Thread
@@ -403,7 +429,9 @@ ${
                   <button
                     onClick={() => setActiveTab("linkedin")}
                     className={`px-3 py-1.5 border-l border-foreground transition-colors ${
-                      activeTab === "linkedin" ? "bg-foreground text-primary-foreground font-bold" : "hover:bg-muted"
+                      activeTab === "linkedin"
+                        ? "bg-foreground text-primary-foreground font-bold"
+                        : "hover:bg-muted"
                     }`}
                   >
                     LinkedIn
@@ -411,7 +439,9 @@ ${
                   <button
                     onClick={() => setActiveTab("chapters")}
                     className={`px-3 py-1.5 border-l border-foreground transition-colors ${
-                      activeTab === "chapters" ? "bg-foreground text-primary-foreground font-bold" : "hover:bg-muted"
+                      activeTab === "chapters"
+                        ? "bg-foreground text-primary-foreground font-bold"
+                        : "hover:bg-muted"
                     }`}
                   >
                     Chapters ({results.chapters?.length || 0})
@@ -439,8 +469,12 @@ ${
                   content={results.blog}
                   icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
                   jobId={activeJobId}
-                  onContentChange={(val) => setResults({ ...results, blog: val })}
-                  onRegenerateTriggered={() => activeJobId && loadJobAssets(activeJobId)}
+                  onContentChange={(val) =>
+                    setResults({ ...results, blog: val })
+                  }
+                  onRegenerateTriggered={() =>
+                    activeJobId && loadJobAssets(activeJobId)
+                  }
                 />
               )}
 
@@ -452,8 +486,12 @@ ${
                   content={results.twitter}
                   icon={<Twitter className="h-5 w-5" strokeWidth={1.5} />}
                   jobId={activeJobId}
-                  onContentChange={(val) => setResults({ ...results, twitter: val })}
-                  onRegenerateTriggered={() => activeJobId && loadJobAssets(activeJobId)}
+                  onContentChange={(val) =>
+                    setResults({ ...results, twitter: val })
+                  }
+                  onRegenerateTriggered={() =>
+                    activeJobId && loadJobAssets(activeJobId)
+                  }
                 />
               )}
 
@@ -465,8 +503,12 @@ ${
                   content={results.linkedin}
                   icon={<Linkedin className="h-5 w-5" strokeWidth={1.5} />}
                   jobId={activeJobId}
-                  onContentChange={(val) => setResults({ ...results, linkedin: val })}
-                  onRegenerateTriggered={() => activeJobId && loadJobAssets(activeJobId)}
+                  onContentChange={(val) =>
+                    setResults({ ...results, linkedin: val })
+                  }
+                  onRegenerateTriggered={() =>
+                    activeJobId && loadJobAssets(activeJobId)
+                  }
                 />
               )}
 
@@ -489,9 +531,12 @@ ${
               <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
                 ✧ ✧ ✧
               </span>
-              <p className="font-serif text-2xl font-bold mt-4 mb-2">Ready to Repurpose</p>
+              <p className="font-serif text-2xl font-bold mt-4 mb-2">
+                Ready to Repurpose
+              </p>
               <p className="font-body text-sm text-muted-foreground">
-                Paste any YouTube URL above to produce SEO blogs, threads, thought leadership posts, and timestamped chapter bookmarks.
+                Paste any YouTube URL above to produce SEO blogs, threads,
+                thought leadership posts, and timestamped chapter bookmarks.
               </p>
             </div>
           </div>
