@@ -44,6 +44,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://crp_user:crp_password@postgres:5432/crp_db
       - REDIS_URL=redis://redis:6379/0
+      - DB_SSL=false
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,6 +63,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://crp_user:crp_password@postgres:5432/crp_db
       - REDIS_URL=redis://redis:6379/0
+      - DB_SSL=false
     depends_on:
       postgres:
         condition: service_healthy
