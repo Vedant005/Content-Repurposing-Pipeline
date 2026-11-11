@@ -56,10 +56,11 @@ const Pipeline = () => {
 
   const fetchBrandProfiles = async () => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/brand-profiles`,
-        { credentials: "include" },
-      );
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const res = await fetch(`${backendUrl}/api/v1/brand-profiles`, {
+        credentials: "include",
+      });
       if (res.ok) {
         const data = await res.json();
         setBrandProfiles(data);
@@ -71,10 +72,11 @@ const Pipeline = () => {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/history?limit=10`,
-        { credentials: "include" },
-      );
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const res = await fetch(`${backendUrl}/api/v1/history?limit=10`, {
+        credentials: "include",
+      });
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -118,11 +120,13 @@ const Pipeline = () => {
 
   const loadJobAssets = async (jobId: number) => {
     try {
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const [statusRes, assetsRes] = await Promise.all([
-        fetch(`${process.env.BACKEND_URL}/api/v1/status/${jobId}`, {
+        fetch(`${backendUrl}/api/v1/status/${jobId}`, {
           credentials: "include",
         }),
-        fetch(`${process.env.BACKEND_URL}/api/v1/jobs/${jobId}/assets`, {
+        fetch(`${backendUrl}/api/v1/jobs/${jobId}/assets`, {
           credentials: "include",
         }),
       ]);
@@ -177,15 +181,14 @@ const Pipeline = () => {
         payload.brand_profile_id = selectedBrandProfileId;
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/repurpose`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        },
-      );
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const response = await fetch(`${backendUrl}/api/v1/repurpose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));

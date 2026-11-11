@@ -26,7 +26,9 @@ export default function SSEProgressTicker({ jobId, onCompleted, onFailed }: SSEP
     let isTerminated = false;
 
     const connectSSE = () => {
-      const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/jobs/${jobId}/events`);
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const url = new URL(`${backendUrl}/api/v1/jobs/${jobId}/events`);
       if (lastEventId) {
         url.searchParams.set("last_event_id", lastEventId);
       }

@@ -60,8 +60,10 @@ export default function AssetEditor({
     setRetryMessage(null);
 
     try {
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/jobs/${jobId}/assets/${assetType}/retry`,
+        `${backendUrl}/api/v1/jobs/${jobId}/assets/${assetType}/retry`,
         {
           method: "POST",
           credentials: "include",

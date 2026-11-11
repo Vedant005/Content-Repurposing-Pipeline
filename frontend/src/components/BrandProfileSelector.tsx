@@ -47,7 +47,9 @@ export default function BrandProfileSelector({ onProfileCreated }: BrandProfileS
         },
       };
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/brand-profiles`, {
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const res = await fetch(`${backendUrl}/api/v1/brand-profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
