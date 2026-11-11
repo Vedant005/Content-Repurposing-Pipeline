@@ -8,8 +8,17 @@ from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool
 from src.core.config import settings
 
 connect_args = {"statement_cache_size": 0}
-if "localhost" not in settings.DATABASE_URL and "127.0.0.1" not in settings.DATABASE_URL:
+if settings.DB_SSL is True:
     connect_args["ssl"] = "require"
+elif settings.DB_SSL is False:
+    pass
+else:
+    is_local_or_docker = any(
+        host in settings.DATABASE_URL.lower()
+        for host in ["localhost", "127.0.0.1", "@postgres", "@db", "host.docker.internal"]
+    )
+    if not is_local_or_docker and "sslmode=disable" not in settings.DATABASE_URL.lower():
+        connect_args["ssl"] = "require"
 
 is_testing = "pytest" in sys.modules or os.environ.get("ENV") == "test"
 poolclass = NullPool if is_testing else AsyncAdaptedQueuePool

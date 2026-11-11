@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         "https://content-times.vercel.app",
     ]
     ENV: str = "prod"
+    DB_SSL: bool | None = None
 
     # Redis & Queue settings
     REDIS_URL: str = "redis://localhost:6379/0"

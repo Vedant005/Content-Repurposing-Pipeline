@@ -90,7 +90,10 @@ class LLMProvider:
                         model=target_model,
                         messages=[
                             {"role": "system", "content": schema_prompt},
-                            {"role": "user", "content": user_content},
+                            {
+                                "role": "user",
+                                "content": f"{user_content}\n\nRespond with a valid JSON object matching the requested schema.",
+                            },
                         ],
                         response_format={"type": "json_object"},
                         temperature=temperature,
@@ -132,7 +135,10 @@ class LLMProvider:
                 )
                 last_error = LLMRateLimitError(str(rl_err), retry_after=wait_time)
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(wait_time)
+                    if target_model != self.fallback_model:
+                        logger.info("Switching to fallback model %s due to rate limit", self.fallback_model)
+                        target_model = self.fallback_model
+                    await asyncio.sleep(min(wait_time, 2.0))
 
             except TimeoutError:
                 logger.warning(
@@ -150,6 +156,9 @@ class LLMProvider:
                 logger.error("Groq API status error: status=%s, err=%s", status_code, api_err)
                 last_error = LLMProviderError(f"Groq API error ({status_code}): {api_err}")
                 if attempt < max_retries - 1:
+                    if target_model != self.fallback_model:
+                        logger.info("Switching to fallback model %s due to API error %s", self.fallback_model, status_code)
+                        target_model = self.fallback_model
                     await asyncio.sleep(2**attempt + random.uniform(0.1, 0.5))
 
             except Exception as unk_err:
@@ -192,11 +201,17 @@ class LLMProvider:
                 return text.strip()
 
             except RateLimitError as rl_err:
-                wait_time = 2**attempt + random.uniform(0.5, 1.5)
+                retry_after = getattr(rl_err, "retry_after", None)
+                wait_time = (
+                    float(retry_after) if retry_after else (2**attempt + random.uniform(0.5, 1.5))
+                )
                 logger.warning("Rate limit hit on %s, retrying in %.1fs", target_model, wait_time)
                 last_error = LLMRateLimitError(str(rl_err), retry_after=wait_time)
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(wait_time)
+                    if target_model != self.fallback_model:
+                        logger.info("Switching to fallback model %s due to rate limit in text generation", self.fallback_model)
+                        target_model = self.fallback_model
+                    await asyncio.sleep(min(wait_time, 2.0))
 
             except Exception as e:
                 logger.error("Groq text generation error: %s", e)
