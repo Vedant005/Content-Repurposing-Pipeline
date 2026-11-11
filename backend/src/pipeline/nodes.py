@@ -283,12 +283,19 @@ async def node_generate_chapters(state: PipelineState) -> dict[str, Any]:
             t_sec = c.get("timestamp_seconds", i * 60)
             m = t_sec // 60
             s = t_sec % 60
+            raw_summary = (c.get("summary") or "").strip()
+            ch_title = c.get("title", f"Section {i + 1}")
+            safe_summary = (
+                raw_summary
+                if len(raw_summary) >= 10
+                else f"Discussion and key insights on {ch_title}."
+            )
             chapters_list.append(
                 ChapterItem(
                     timestamp_seconds=t_sec,
                     timestamp_formatted=c.get("timestamp_formatted", f"{m:02d}:{s:02d}"),
-                    title=c.get("title", f"Section {i + 1}"),
-                    summary=c.get("summary", ""),
+                    title=ch_title,
+                    summary=safe_summary,
                     source_segment_id=c.get("source_segment_id", i),
                 )
             )

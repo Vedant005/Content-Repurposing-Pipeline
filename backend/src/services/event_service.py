@@ -99,15 +99,15 @@ class EventService:
     async def subscribe_events(
         self, job_id: int, last_event_id: int | None = None
     ) -> AsyncGenerator[str, None]:
-        """Asynchronous generator streaming Server-Sent Events with event replay and keepalives."""
-        # Step 1: Replay missed historical events
+        """Asynchronous generator streaming Server-Sent Events with event replay, Redis Pub/Sub, and DB polling fallback."""
+        # Step 1: Replay historical events
         last_seq = last_event_id or 0
-        if last_seq > 0:
-            missed_events = await self.get_events_after(job_id, last_seq)
-            for evt in missed_events:
-                yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(evt['payload'])}\n\n"
-                if evt["event_type"] in TERMINAL_EVENTS:
-                    return
+        missed_events = await self.get_events_after(job_id, last_seq)
+        for evt in missed_events:
+            last_seq = max(last_seq, evt["sequence_num"])
+            yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(evt['payload'])}\n\n"
+            if evt["event_type"] in TERMINAL_EVENTS:
+                return
 
         # Step 2: Connect to Redis Pub/Sub for live events
         redis_client = None
@@ -148,9 +148,23 @@ class EventService:
                     yield ": ping\n\n"
 
         except Exception as stream_err:
-            logger.warning("SSE Redis stream error for job %d: %s", job_id, stream_err)
-            # Yield final heartbeat comment before closing
-            yield ": stream_interrupted\n\n"
+            logger.warning(
+                "SSE Redis stream unavailable for job %d (%s) — falling back to database event polling",
+                job_id,
+                stream_err,
+            )
+            # Reliable database event polling fallback when Redis is offline
+            poll_retries = 0
+            while poll_retries < 120:
+                await asyncio.sleep(1.5)
+                new_events = await self.get_events_after(job_id, last_seq)
+                for evt in new_events:
+                    last_seq = max(last_seq, evt["sequence_num"])
+                    yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(evt['payload'])}\n\n"
+                    if evt["event_type"] in TERMINAL_EVENTS:
+                        return
+                poll_retries += 1
+                yield ": ping\n\n"
         finally:
             if pubsub:
                 try:
