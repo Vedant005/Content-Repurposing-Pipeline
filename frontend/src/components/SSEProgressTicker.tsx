@@ -87,7 +87,7 @@ export default function SSEProgressTicker({ jobId, onCompleted, onFailed }: SSEP
       // Small delay to let user see "Completed" before unmounting
       setTimeout(() => {
         onCompleted();
-      }, 600);
+      }, 300);
     };
 
     const triggerFail = (errMsg: string) => {
@@ -193,7 +193,7 @@ export default function SSEProgressTicker({ jobId, onCompleted, onFailed }: SSEP
       } catch (err) {
         // Soft fail on polling check
       }
-    }, 2000);
+    }, 1500);
 
     return () => {
       isTerminatedRef.current = true;
