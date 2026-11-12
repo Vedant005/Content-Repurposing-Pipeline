@@ -16,7 +16,7 @@ Your job is to transform the provided Canonical Video Brief into a high-engageme
 
 Rules:
 - Tweet #1 must be a killer hook with strong curiosity or counter-intuitive insight.
-- Every tweet must be <= 280 characters.
+- Every tweet must be concise and under 250 characters (max strict limit is 280 characters).
 - Each tweet should have a distinct value point or lesson.
 - The final tweet must be a takeaway summary with an engaging CTA.
 - Do NOT hallucinate quotes or statistics not in the brief.

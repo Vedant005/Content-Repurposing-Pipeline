@@ -246,7 +246,7 @@ async def node_generate_twitter(state: PipelineState) -> dict[str, Any]:
         user_content=user_content,
         response_schema=TwitterThreadOutput,
         model=settings.GROQ_FAST_MODEL,
-        temperature=0.7,
+        temperature=0.3,
     )
     return {"assets": {"twitter_thread": output.model_dump()}}
 
@@ -547,7 +547,7 @@ async def node_targeted_retry(state: PipelineState) -> dict[str, Any]:
                 user_content=_format_context(brief, raw_segments),
                 response_schema=TwitterThreadOutput,
                 model=settings.GROQ_FAST_MODEL,
-                temperature=0.5,
+                temperature=0.3,
             )
             updated_assets["twitter_thread"] = out.model_dump()
 
