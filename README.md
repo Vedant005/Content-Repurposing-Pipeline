@@ -12,7 +12,7 @@ The system combines a FastAPI backend, LangGraph state-graph pipeline, ARQ distr
 - **Multi-Model LLM Routing with Automated Fallback**:
   - Deep Model (`openai/gpt-oss-120b`): High-context reasoning for comprehensive SEO blog posts.
   - Fast Model (`openai/gpt-oss-20b`): High-throughput generation for atomic tweets, LinkedIn posts, and chapters.
-  - Fallback Model (`qwen/qwen3.6-27b`): Automated failover for rate limit (429) backoffs and JSON validation errors.
+  - Fallback Model (`qwen/qwen3.8-27b`): Automated failover for rate limit (429) backoffs and JSON validation errors.
 - **Brand Voice and Style Profiles**: Custom profiles (tone, target audience, voice rules, few-shot examples) dynamically injected into generation prompts.
 - **Real-Time Event Streaming (SSE)**: Full Server-Sent Events architecture via Redis Pub/Sub with sequence-based event replay and automatic PostgreSQL polling fallback.
 - **Targeted Per-Asset Regeneration**: Regenerate individual assets (e.g. only the Twitter thread or only the Blog) without re-running the transcript extraction or other assets.
@@ -63,6 +63,7 @@ The system combines a FastAPI backend, LangGraph state-graph pipeline, ARQ distr
 ## Tech Stack
 
 ### Backend
+
 - **Framework**: FastAPI, Uvicorn, Python 3.12
 - **Orchestration**: LangGraph, LangChain Core
 - **Database & ORM**: PostgreSQL 16, SQLAlchemy 2.0 (AsyncIO), Alembic migrations
@@ -72,11 +73,13 @@ The system combines a FastAPI backend, LangGraph state-graph pipeline, ARQ distr
 - **Security & Rate Limiting**: SlowAPI, HTTP-only SameSite session cookies
 
 ### Frontend
+
 - **Framework**: Next.js 16.1 (App Router, Turbopack), React 19
 - **Styling**: Tailwind CSS, Lucide React icons
 - **State & Data**: Native React Hooks, EventSource SSE API, LocalStorage persistence
 
 ### Infrastructure & Testing
+
 - **Containers**: Docker, Docker Compose
 - **Test Suite**: Pytest, Pytest-AsyncIO, Respx, HTTPX (45 passing tests)
 
@@ -193,7 +196,9 @@ crp/
 ### Repurposing Endpoints
 
 #### POST `/api/v1/repurpose`
+
 Enqueues a YouTube video for repurposing.
+
 - **Request Body**:
   ```json
   {
@@ -211,9 +216,12 @@ Enqueues a YouTube video for repurposing.
   ```
 
 #### GET `/api/v1/jobs/{job_id}/events`
+
 Establishes a Server-Sent Events (SSE) connection streaming real-time stage updates.
+
 - **Query Parameters**: `last_event_id` (optional integer for event replay).
 - **Stream Output**:
+
   ```text
   id: 1
   event: job_started
@@ -225,7 +233,9 @@ Establishes a Server-Sent Events (SSE) connection streaming real-time stage upda
   ```
 
 #### GET `/api/v1/status/{job_id}`
+
 Retrieves job status and effective content outputs.
+
 - **Response** (HTTP 200):
   ```json
   {
@@ -239,24 +249,43 @@ Retrieves job status and effective content outputs.
   ```
 
 #### GET `/api/v1/jobs/{job_id}/assets`
+
 Retrieves granular asset records including validation history and critique scores.
 
 #### POST `/api/v1/jobs/{job_id}/assets/{asset_type}/retry`
+
 Triggers targeted regeneration for a specific asset (`blog`, `twitter_thread`, `linkedin_post`).
 
 #### GET `/api/v1/history`
+
 Returns paginated job history for the active browser session.
+
 - **Query Parameters**: `limit` (default: 10, max: 50), `offset` (default: 0).
+
+#### DELETE `/api/v1/jobs/{job_id}`
+
+Deletes a job and cascades removal of all associated assets and event logs.
+
+- **Response** (HTTP 200):
+  ```json
+  {
+    "status": "success",
+    "message": "Job 42 deleted successfully."
+  }
+  ```
 
 ---
 
 ### Brand Profile Endpoints
 
 #### GET `/api/v1/brand-profiles`
+
 Lists all brand voice profiles available for the session.
 
 #### POST `/api/v1/brand-profiles`
+
 Creates a new brand persona profile.
+
 - **Request Body**:
   ```json
   {
@@ -272,9 +301,11 @@ Creates a new brand persona profile.
   ```
 
 #### GET `/api/v1/brand-profiles/{profile_id}`
+
 Retrieves details for a specific brand profile.
 
 #### DELETE `/api/v1/brand-profiles/{profile_id}`
+
 Deletes a brand profile.
 
 ---
@@ -317,6 +348,7 @@ Deletes a brand profile.
 ## Installation & Setup
 
 ### Prerequisites
+
 - Docker & Docker Compose (recommended), or Python 3.12+ and Node.js 18+
 - Groq Cloud API Key
 - Supadata API Key
@@ -326,6 +358,7 @@ Deletes a brand profile.
 ### Option A: Running with Docker Compose (Recommended)
 
 1. **Clone the Repository**:
+
    ```bash
    git clone https://github.com/Vedant005/Content-Repurposing-Pipeline.git
    cd Content-Repurposing-Pipeline
@@ -333,6 +366,7 @@ Deletes a brand profile.
 
 2. **Configure Environment Variables**:
    Create `backend/.env`:
+
    ```env
    PROJECT_NAME="Content Repurposing Studio"
    GROQ_API_KEY=gsk_your_groq_api_key
@@ -344,11 +378,13 @@ Deletes a brand profile.
    ```
 
    Create `frontend/.env`:
+
    ```env
    NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
    ```
 
 3. **Start All Services**:
+
    ```bash
    docker compose up --build
    ```
@@ -369,9 +405,11 @@ Deletes a brand profile.
 ### Option B: Local Manual Setup
 
 #### 1. Database and Redis
+
 Start local instances of PostgreSQL (port 5432) and Redis (port 6379).
 
 #### 2. Backend Setup
+
 ```bash
 cd backend
 
@@ -393,6 +431,7 @@ uvicorn src.main:app --reload --port 8000
 ```
 
 In a separate terminal, start the background worker:
+
 ```bash
 cd backend
 # With virtual environment activated:
@@ -400,6 +439,7 @@ arq src.worker.worker.WorkerSettings
 ```
 
 #### 3. Frontend Setup
+
 ```bash
 cd frontend
 npm install
@@ -418,6 +458,7 @@ pytest tests/ -v
 ```
 
 Test coverage includes:
+
 - Brand Profile CRUD validation
 - Semantic chunking token preservation
 - LangGraph DAG execution and conditional branching
