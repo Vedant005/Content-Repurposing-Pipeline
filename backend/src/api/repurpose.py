@@ -290,3 +290,31 @@ async def retry_single_asset(
         "status": "queued",
         "message": f"Targeted retry for '{asset_type}' accepted.",
     }
+
+
+@router.delete("/jobs/{job_id}", status_code=200)
+async def delete_job(
+    job_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    session_id = get_session_id(request)
+
+    result = await db.execute(
+        select(ContentJob).where(
+            ContentJob.id == job_id,
+            ContentJob.session_id == session_id,
+        )
+    )
+    job = result.scalar_one_or_none()
+
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job {job_id} not found or not owned by session.",
+        )
+
+    await db.delete(job)
+    await db.commit()
+
+    return {"status": "success", "message": f"Job {job_id} deleted successfully."}
