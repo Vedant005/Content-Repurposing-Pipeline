@@ -105,7 +105,15 @@ class EventService:
         missed_events = await self.get_events_after(job_id, last_seq)
         for evt in missed_events:
             last_seq = max(last_seq, evt["sequence_num"])
-            yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(evt['payload'])}\n\n"
+            payload_data = evt.get("payload") or {}
+            enriched = {
+                "stage": evt["event_type"],
+                "event": evt["event_type"],
+                "event_type": evt["event_type"],
+                "sequence_num": evt["sequence_num"],
+                **(payload_data if isinstance(payload_data, dict) else {"data": payload_data}),
+            }
+            yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(enriched)}\n\n"
             if evt["event_type"] in TERMINAL_EVENTS:
                 return
 
@@ -138,7 +146,15 @@ class EventService:
                         # Only stream events strictly greater than what was already replayed
                         if evt.get("sequence_num", 0) > last_seq:
                             last_seq = evt["sequence_num"]
-                            yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(evt['payload'])}\n\n"
+                            payload_data = evt.get("payload") or {}
+                            enriched = {
+                                "stage": evt.get("event_type", "progress"),
+                                "event": evt.get("event_type", "progress"),
+                                "event_type": evt.get("event_type", "progress"),
+                                "sequence_num": evt.get("sequence_num", 0),
+                                **(payload_data if isinstance(payload_data, dict) else {"data": payload_data}),
+                            }
+                            yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(enriched)}\n\n"
 
                         if evt.get("event_type") in TERMINAL_EVENTS:
                             break
@@ -160,7 +176,15 @@ class EventService:
                 new_events = await self.get_events_after(job_id, last_seq)
                 for evt in new_events:
                     last_seq = max(last_seq, evt["sequence_num"])
-                    yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(evt['payload'])}\n\n"
+                    payload_data = evt.get("payload") or {}
+                    enriched = {
+                        "stage": evt.get("event_type", "progress"),
+                        "event": evt.get("event_type", "progress"),
+                        "event_type": evt.get("event_type", "progress"),
+                        "sequence_num": evt.get("sequence_num", 0),
+                        **(payload_data if isinstance(payload_data, dict) else {"data": payload_data}),
+                    }
+                    yield f"id: {evt['sequence_num']}\nevent: {evt['event_type']}\ndata: {json.dumps(enriched)}\n\n"
                     if evt["event_type"] in TERMINAL_EVENTS:
                         return
                 poll_retries += 1
