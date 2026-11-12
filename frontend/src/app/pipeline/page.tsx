@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Download,
   Video,
+  Trash2,
 } from "lucide-react";
 import YouTubeInput from "@/components/YouTubeInput";
 import AssetEditor from "@/components/AssetEditor";
@@ -153,6 +154,14 @@ const Pipeline = () => {
       });
       setIsLoading(false);
       fetchHistory();
+
+      // Smooth scroll to results workbench
+      setTimeout(() => {
+        const el = document.getElementById("results-workbench");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
     } catch (err: any) {
       console.error("Error loading job assets:", err);
       setError(err.message || "Failed to load generated content.");
@@ -169,8 +178,37 @@ const Pipeline = () => {
     await loadJobAssets(jobId);
   };
 
+  const handleDeleteJob = async (e: React.MouseEvent, jobId: number) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete Job #${jobId}?`)) return;
+
+    try {
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const res = await fetch(`${backendUrl}/api/v1/jobs/${jobId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        setHistory((prev) => prev.filter((item) => item.id !== jobId));
+        if (activeJobId === jobId) {
+          setActiveJobId(null);
+          setResults(null);
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.detail || "Failed to delete job.");
+      }
+    } catch (err: any) {
+      console.error("Failed to delete job:", err);
+      alert(err.message || "Network error while deleting job.");
+    }
+  };
+
   const handleSubmit = async (url: string) => {
     setVideoUrl(url);
+    setActiveJobId(null); // Clear previous active job so stale ticker won't trigger complete
     setIsLoading(true);
     setResults(null);
     setError(null);
@@ -287,19 +325,32 @@ ${
         </div>
       </section>
 
-      {/* Live SSE Progress Ticker (When Job is Active) */}
-      {isLoading && activeJobId && (
+      {/* Live SSE Progress Ticker (When Job is Active or Submitting) */}
+      {isLoading && (
         <section className="border-b border-foreground bg-muted/10">
           <div className="container py-8">
-            <SSEProgressTicker
-              jobId={activeJobId}
-              onCompleted={() => loadJobAssets(activeJobId)}
-              onFailed={(msg) => {
-                setError(msg);
-                setIsLoading(false);
-                fetchHistory();
-              }}
-            />
+            {activeJobId ? (
+              <SSEProgressTicker
+                key={activeJobId}
+                jobId={activeJobId}
+                onCompleted={() => loadJobAssets(activeJobId)}
+                onFailed={(msg) => {
+                  setError(msg);
+                  setIsLoading(false);
+                  fetchHistory();
+                }}
+              />
+            ) : (
+              <div className="border-2 border-foreground bg-background p-6 shadow-[6px_6px_0px_0px_hsl(0_0%_7%)] mb-8 flex items-center justify-between">
+                <div className="flex items-center gap-3 font-mono text-sm font-semibold">
+                  <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                  <span>Submitting video to processing queue...</span>
+                </div>
+                <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground animate-pulse">
+                  [INITIALIZING]
+                </span>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -373,6 +424,14 @@ ${
                       {item.status === "processing" && (
                         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                       )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteJob(e, item.id)}
+                        title={`Delete Job #${item.id}`}
+                        className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/30 rounded-none ml-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -394,7 +453,7 @@ ${
 
       {/* Results Workbench */}
       {results && !isLoading && (
-        <section>
+        <section id="results-workbench">
           <div className="container py-8 md:py-12">
             <div className="flex flex-wrap items-center justify-between border-b border-foreground pb-4 mb-8 gap-4">
               <div>
