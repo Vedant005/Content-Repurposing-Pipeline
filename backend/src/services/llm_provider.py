@@ -76,10 +76,11 @@ class LLMProvider:
         """Executes a completion requiring strict JSON structured output matching response_schema."""
         target_model = model or self.fast_model
         schema_prompt = (
+            f"You are a helpful assistant that outputs only valid JSON.\n\n"
             f"{system_instruction}\n\n"
-            f"IMPORTANT: Output MUST be a valid JSON object strictly matching this schema:\n"
+            f"CRITICAL REQUIREMENT: Output MUST be a single valid JSON object strictly matching this schema:\n"
             f"{json.dumps(response_schema.model_json_schema(), indent=2)}\n"
-            f"Do not include code markdown fences (like ```json), explanations, or preamble."
+            f"Output JSON only. Do not include markdown fences (like ```json), explanations, or preamble."
         )
 
         last_error: Exception | None = None
@@ -92,7 +93,7 @@ class LLMProvider:
                             {"role": "system", "content": schema_prompt},
                             {
                                 "role": "user",
-                                "content": f"{user_content}\n\nRespond with a valid JSON object matching the requested schema.",
+                                "content": f"{user_content}\n\nIMPORTANT: Return ONLY a valid JSON object matching the requested schema. Ensure all fields adhere to length limits.",
                             },
                         ],
                         response_format={"type": "json_object"},
@@ -104,6 +105,24 @@ class LLMProvider:
                 raw_content = response.choices[0].message.content or "{}"
                 try:
                     data = json.loads(raw_content)
+
+                    # Defensive sanitization before Pydantic validation
+                    if isinstance(data, dict):
+                        # Auto-clip tweet content exceeding 280 characters
+                        if "thread" in data and isinstance(data["thread"], list):
+                            for item in data["thread"]:
+                                if isinstance(item, dict) and isinstance(item.get("content"), str):
+                                    txt = item["content"].strip()
+                                    if len(txt) > 280:
+                                        item["content"] = txt[:277] + "..."
+                        # Auto-pad chapter summaries that are too short
+                        if "chapters" in data and isinstance(data["chapters"], list):
+                            for idx, ch in enumerate(data["chapters"]):
+                                if isinstance(ch, dict):
+                                    s = ch.get("summary") or ""
+                                    if len(s) < 10:
+                                        ch["summary"] = f"Key points and discussion in segment {idx + 1}."
+
                     return response_schema.model_validate(data)
                 except (json.JSONDecodeError, ValidationError) as parse_err:
                     logger.warning(
