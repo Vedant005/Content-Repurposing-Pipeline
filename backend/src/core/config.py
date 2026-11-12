@@ -18,10 +18,10 @@ class Settings(BaseSettings):
     # Redis & Queue settings
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Groq Model assignments (openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.6-27b)
+    # Groq Model assignments (openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.8-27b)
     GROQ_DEEP_MODEL: str = "openai/gpt-oss-120b"
     GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"
-    GROQ_FALLBACK_MODEL: str = "qwen/qwen3.6-27b"
+    GROQ_FALLBACK_MODEL: str = "qwen/qwen3.8-27b"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
